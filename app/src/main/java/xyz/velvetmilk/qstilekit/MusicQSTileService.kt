@@ -15,9 +15,11 @@ import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
 
+@Suppress("ConstantConditionIf")
 class MusicQSTileService : TileService() {
     companion object {
         private val TAG = MusicQSTileService::class.java.simpleName
+        private const val DEBUG = BuildConfig.CUSTOM_DEBUG
     }
 
     private var playbackState: Int = PlaybackState.STATE_NONE
@@ -29,14 +31,14 @@ class MusicQSTileService : TileService() {
 
     private var mediaControllerCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
-            Log.d(TAG, "onMetadataChanged")
+            if (DEBUG) Log.d(TAG, "onMetadataChanged")
 
             songName = metadata?.description?.title
             statefulUpdateTile(tile)
         }
 
         override fun onPlaybackStateChanged(state: PlaybackState?) {
-            Log.d(TAG, "onPlaybackStateChanged")
+            if (DEBUG) Log.d(TAG, "onPlaybackStateChanged")
 
             playbackState = state?.state ?: PlaybackState.STATE_NONE
             statefulUpdateTile(tile)
@@ -44,69 +46,88 @@ class MusicQSTileService : TileService() {
     }
 
     private var actionSessionListener = MediaSessionManager.OnActiveSessionsChangedListener {
-        Log.d(TAG, "onActiveSessionsChanged")
+        if (DEBUG) Log.d(TAG, "onActiveSessionsChanged")
 
         clearCurrentSession()
-
         updateCurrentSession(it)
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        Log.d(TAG, "onBind")
+        if (DEBUG) Log.d(TAG, "onBind")
 
         return super.onBind(intent)
     }
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "onCreate")
+        if (DEBUG) Log.d(TAG, "onCreate")
 
         defaultNames = arrayOf(getString(R.string.play), getString(R.string.pause))
     }
 
     override fun onTileAdded() {
-        Log.d(TAG, "onTileAdded")
-        Toast.makeText(this, "onTileAdded", Toast.LENGTH_SHORT).show()
+        if (DEBUG) Log.d(TAG, "onTileAdded")
     }
 
     override fun onTileRemoved() {
-        Log.d(TAG, "onTileRemoved")
-        Toast.makeText(this, "onTileRemoved", Toast.LENGTH_SHORT).show()
+        if (DEBUG) Log.d(TAG, "onTileRemoved")
     }
 
     override fun onStartListening() {
-        Log.d(TAG, "onStartListening")
+        if (DEBUG) Log.d(TAG, "onStartListening")
         tile = qsTile
 
         val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-        mediaSessionManager.addOnActiveSessionsChangedListener(actionSessionListener, null)
 
-        updateCurrentSession(mediaSessionManager.getActiveSessions(null))
+        try {
+            mediaSessionManager.addOnActiveSessionsChangedListener(actionSessionListener, null)
+            updateCurrentSession(mediaSessionManager.getActiveSessions(null))
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
     }
 
     override fun onStopListening() {
-        Log.d(TAG, "onStopListening")
+        if (DEBUG) Log.d(TAG, "onStopListening")
         tile = null
 
         val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-        mediaSessionManager.removeOnActiveSessionsChangedListener(actionSessionListener)
+
+        try {
+            mediaSessionManager.removeOnActiveSessionsChangedListener(actionSessionListener)
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
 
         clearCurrentSession()
     }
 
     override fun onClick() {
-        Log.d(TAG, "onClick")
+        if (DEBUG) Log.d(TAG, "onClick")
 
         val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-        val activeSessions = mediaSessionManager.getActiveSessions(null)
 
-        if (activeSessions.isEmpty()) {
+        try {
+            val activeSessions = mediaSessionManager.getActiveSessions(null)
+            if (activeSessions.isEmpty()) {
+                val audioManager: AudioManager = this.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            } else {
+                activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+                activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
+            }
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+
+            // tell user that this needs to be in /system/priv-app
+            Toast.makeText(this, "This needs to be a privileged app to function properly",
+                    Toast.LENGTH_SHORT).show()
+
+            // no sessions, lets try to reboot the most recent
             val audioManager: AudioManager = this.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
             audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
-        } else {
-            activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
-            activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
         }
     }
 
