@@ -15,14 +15,11 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name="xyz.velvetmilk.qstilekit.MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES"/>
-
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+        <!--<activity android:name="xyz.velvetmilk.qstilekit.MainActivity">-->
+            <!--<intent-filter>-->
+                <!--<action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />-->
+            <!--</intent-filter>-->
+        <!--</activity>-->
 
         <service
             android:name="xyz.velvetmilk.qstilekit.MusicQSTileService"
