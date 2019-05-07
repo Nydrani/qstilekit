@@ -5,7 +5,7 @@ apply plugin: 'kotlin-android-extensions'
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "xyz.velvetmilk.tilebooster"
+        applicationId "xyz.velvetmilk.qstilekit"
         minSdkVersion 24
         targetSdkVersion 28
         versionCode 1

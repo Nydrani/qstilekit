@@ -1,4 +1,4 @@
-package xyz.velvetmilk.tilebooster
+package xyz.velvetmilk.qstilekit
 
 import org.junit.Test
 

@@ -2,7 +2,9 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="xyz.velvetmilk.tilebooster">
+    package="xyz.velvetmilk.qstilekit">
+
+    <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
 
     <application
         android:allowBackup="false"
@@ -13,13 +15,25 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name=".MainActivity">
+        <activity android:name="xyz.velvetmilk.qstilekit.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES"/>
 
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <service
+            android:name="xyz.velvetmilk.qstilekit.MusicQSTileService"
+            android:label="@string/music"
+            android:icon="@android:drawable/ic_media_play"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>
