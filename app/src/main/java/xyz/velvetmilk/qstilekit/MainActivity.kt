@@ -1,42 +1,113 @@
 package xyz.velvetmilk.qstilekit
 
 import android.content.Context
-import android.media.AudioManager
-import android.media.session.MediaSessionManager
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
-import android.service.quicksettings.TileService
 import android.util.Log
-import android.view.KeyEvent
+import androidx.appcompat.app.AppCompatActivity
+import com.google.gson.Gson
+import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), CoroutineScope {
     companion object {
         private val TAG = MainActivity::class.java.simpleName
+        private const val REQUEST_LOCATION = 1
     }
+
+    private lateinit var job: Job
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + job
+
+    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var gson: Gson
+    private lateinit var locationChannel: Channel<LatlngModel?>
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        setContentView(R.layout.activity_main)
         Log.d(TAG, "onCreate")
 
-        // early exist for dealing with tile preferences
-        if (intent.action == TileService.ACTION_QS_TILE_PREFERENCES) {
-            val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-            val activeSessions = mediaSessionManager.getActiveSessions(null)
+        job = Job()
+        sharedPreferences = getSharedPreferences(PreferencesHelper.PREFERENCES_QSTILEKIT, Context.MODE_PRIVATE)
+        gson = Gson()
+        locationChannel = Channel()
 
-            if (activeSessions.isEmpty()) {
-                val audioManager: AudioManager = this.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT))
-                audioManager.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_NEXT))
-            } else {
-                activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_NEXT))
-                activeSessions[0].dispatchMediaButtonEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_NEXT))
-            }
+        // initialise values
+        location_text.text = getString(R.string.custom_location, sharedPreferences.getString(PreferencesHelper.KEY_CUSTOM_LOCATION, null))
+        weather_switch.isChecked = sharedPreferences.getBoolean(PreferencesHelper.KEY_WEATHER_ENABLED, true)
+        media_switch.isChecked = sharedPreferences.getBoolean(PreferencesHelper.KEY_MUSIC_ENABLED, true)
 
-            finish()
-            return
+        // setup click listeners
+        choose_button.setOnClickListener {
+            setCustomLocationFromMap()
         }
 
-        setContentView(R.layout.activity_main)
+        clear_button.setOnClickListener {
+            clearCustomLocation()
+        }
+
+        weather_switch.setOnCheckedChangeListener { _, isChecked ->
+            PreferencesHelper.setComponentState(this, WeatherQSTileService::class.java, isChecked)
+            sharedPreferences.edit().putBoolean(PreferencesHelper.KEY_WEATHER_ENABLED, isChecked).apply()
+        }
+
+        media_switch.setOnCheckedChangeListener { _, isChecked ->
+            PreferencesHelper.setComponentState(this, MusicQSTileService::class.java, isChecked)
+            sharedPreferences.edit().putBoolean(PreferencesHelper.KEY_MUSIC_ENABLED, isChecked).apply()
+        }
+
+        // setup channel observers
+        launch {
+            for (location in locationChannel) {
+                location_text.text = getString(R.string.custom_location, location.toString())
+
+                sharedPreferences
+                    .edit()
+                    .putString(PreferencesHelper.KEY_CUSTOM_LOCATION, gson.toJson(location))
+                    .apply()
+            }
+        }
+    }
+
+    private fun setCustomLocationFromMap() {
+        startActivityForResult(ChooseOnMapActivity.buildIntent(this), REQUEST_LOCATION)
+    }
+
+    private fun clearCustomLocation() {
+        launch {
+            locationChannel.send(null)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
+        locationChannel.cancel()
+        job.cancel()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        when (requestCode) {
+            REQUEST_LOCATION -> {
+                if (resultCode == RESULT_OK) {
+                    // get data
+                    val latlng = data?.getParcelableExtra<LatlngModel>(ChooseOnMapActivity.EXTRA_LATLNG)
+                    launch {
+                        locationChannel.offer(latlng)
+                    }
+                }
+            }
+            else -> {
+                super.onActivityResult(requestCode, resultCode, data)
+            }
+        }
     }
 }

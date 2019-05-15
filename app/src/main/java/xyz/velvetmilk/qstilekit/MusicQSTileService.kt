@@ -2,6 +2,7 @@ package xyz.velvetmilk.qstilekit
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.drawable.Icon
 import android.media.AudioManager
 import android.media.MediaMetadata
@@ -28,6 +29,9 @@ class MusicQSTileService : TileService() {
     private var currentController: MediaController? = null
     private var tile: Tile? = null
 
+    private lateinit var sharedPreferences: SharedPreferences
+
+    private lateinit var mediaSessionManager: MediaSessionManager
 
     private var mediaControllerCallback = object : MediaController.Callback() {
         override fun onMetadataChanged(metadata: MediaMetadata?) {
@@ -52,17 +56,26 @@ class MusicQSTileService : TileService() {
         updateCurrentSession(it)
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        if (DEBUG) Log.d(TAG, "onBind")
-
-        return super.onBind(intent)
-    }
 
     override fun onCreate() {
         super.onCreate()
         if (DEBUG) Log.d(TAG, "onCreate")
 
         defaultNames = arrayOf(getString(R.string.play), getString(R.string.pause))
+        mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+
+        sharedPreferences = getSharedPreferences(PreferencesHelper.PREFERENCES_QSTILEKIT, Context.MODE_PRIVATE)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        if (DEBUG) Log.d(TAG, "onBind")
+
+        return super.onBind(intent)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (DEBUG) Log.d(TAG, "onDestroy")
     }
 
     override fun onTileAdded() {
@@ -75,9 +88,16 @@ class MusicQSTileService : TileService() {
 
     override fun onStartListening() {
         if (DEBUG) Log.d(TAG, "onStartListening")
+
         tile = qsTile
 
-        val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+        // Enabled/disabled tile
+        val enabled = sharedPreferences.getBoolean(PreferencesHelper.KEY_MUSIC_ENABLED, true)
+        if (!enabled) {
+            tile?.state = Tile.STATE_UNAVAILABLE
+        } else {
+            tile?.state = Tile.STATE_ACTIVE
+        }
 
         try {
             mediaSessionManager.addOnActiveSessionsChangedListener(actionSessionListener, null)
@@ -91,8 +111,6 @@ class MusicQSTileService : TileService() {
         if (DEBUG) Log.d(TAG, "onStopListening")
         tile = null
 
-        val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-
         try {
             mediaSessionManager.removeOnActiveSessionsChangedListener(actionSessionListener)
         } catch (e: SecurityException) {
@@ -104,8 +122,6 @@ class MusicQSTileService : TileService() {
 
     override fun onClick() {
         if (DEBUG) Log.d(TAG, "onClick")
-
-        val mediaSessionManager: MediaSessionManager = this.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
 
         try {
             val activeSessions = mediaSessionManager.getActiveSessions(null)
@@ -131,7 +147,15 @@ class MusicQSTileService : TileService() {
         }
     }
 
+
     private fun statefulUpdateTile(tile: Tile?) {
+        if (tile?.state == Tile.STATE_UNAVAILABLE) {
+            tile.icon = Icon.createWithResource(this@MusicQSTileService, android.R.drawable.ic_media_play)
+            tile.label = defaultNames[0]
+            tile.updateTile()
+            return
+        }
+
         if (playbackState == PlaybackState.STATE_PLAYING) {
             tile?.icon = Icon.createWithResource(this@MusicQSTileService, android.R.drawable.ic_media_pause)
             tile?.label = songName ?: defaultNames[1]

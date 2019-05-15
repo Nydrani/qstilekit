@@ -5,8 +5,13 @@
     package="xyz.velvetmilk.qstilekit">
 
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET" />
 
+    <uses-feature android:name="android.hardware.location.network" />
+    <uses-feature android:name="android.hardware.location.gps" />
     <application
+        android:name=".QSTileKitApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -15,16 +20,36 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
-        <!--<activity android:name="xyz.velvetmilk.qstilekit.MainActivity">-->
-            <!--<intent-filter>-->
-                <!--<action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />-->
-            <!--</intent-filter>-->
-        <!--</activity>-->
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_api_key"/>
+
+        <activity android:name="xyz.velvetmilk.qstilekit.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="xyz.velvetmilk.qstilekit.ChooseOnMapActivity" />
+
 
         <service
             android:name="xyz.velvetmilk.qstilekit.MusicQSTileService"
             android:label="@string/music"
             android:icon="@android:drawable/ic_media_play"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="xyz.velvetmilk.qstilekit.WeatherQSTileService"
+            android:label="@string/weather"
+            android:icon="@android:drawable/ic_menu_week"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
