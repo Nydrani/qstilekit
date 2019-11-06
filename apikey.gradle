@@ -4,4 +4,5 @@ apiKeysFile.load(new FileInputStream(fileName))
 
 ext {
     googleMapsKey = apiKeysFile['googleMapsApiKey']
+    openWeatherMapsKey = apiKeysFile['openWeatherMapsApiKey']
 }

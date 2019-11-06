@@ -18,6 +18,7 @@ import android.widget.Toast
 
 @Suppress("ConstantConditionIf")
 class MusicQSTileService : TileService() {
+
     companion object {
         private val TAG = MusicQSTileService::class.java.simpleName
         private const val DEBUG = BuildConfig.CUSTOM_DEBUG

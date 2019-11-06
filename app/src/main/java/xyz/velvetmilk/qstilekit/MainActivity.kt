@@ -14,8 +14,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
+import android.widget.ArrayAdapter
 
 class MainActivity : AppCompatActivity(), CoroutineScope {
+
     companion object {
         private val TAG = MainActivity::class.java.simpleName
         private const val REQUEST_LOCATION = 1
@@ -62,6 +64,19 @@ class MainActivity : AppCompatActivity(), CoroutineScope {
         media_switch.setOnCheckedChangeListener { _, isChecked ->
             PreferencesHelper.setComponentState(this, MusicQSTileService::class.java, isChecked)
             sharedPreferences.edit().putBoolean(PreferencesHelper.KEY_MUSIC_ENABLED, isChecked).apply()
+        }
+
+        val tempUnits = arrayOf("Celcius", "Kelvin", "Fahrenheit")
+        val adapter = ArrayAdapter(
+                this,
+                R.layout.dropdown_menu_popup_item,
+                tempUnits)
+
+        filled_exposed_dropdown.setAdapter(adapter)
+        filled_exposed_dropdown.setText(tempUnits[sharedPreferences.getLong(PreferencesHelper.KEY_TEMPURATURE_UNIT, 0).toInt()], false)
+        filled_exposed_dropdown.setOnItemClickListener { parent, view, position, id ->
+            sharedPreferences.edit().putLong(PreferencesHelper.KEY_TEMPURATURE_UNIT, id).apply()
+            // tell weather
         }
 
         // setup channel observers

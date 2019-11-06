@@ -20,7 +20,8 @@ import org.json.JSONException
 import org.threeten.bp.Duration
 import org.threeten.bp.Instant
 import org.threeten.bp.ZoneId
-import org.threeten.bp.format.DateTimeFormatter
+import org.threeten.bp.format.DateTimeFormatterBuilder
+import org.threeten.bp.temporal.ChronoField
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
@@ -32,7 +33,7 @@ class WeatherQSTileService : TileService(), CoroutineScope {
         private val TAG = WeatherQSTileService::class.java.simpleName
         private const val DEBUG = BuildConfig.CUSTOM_DEBUG
 
-        const val API_KEY = "***REMOVED***"
+        private const val API_KEY: String = BuildConfig.OWM_API_KEY
     }
 
 
@@ -83,11 +84,19 @@ class WeatherQSTileService : TileService(), CoroutineScope {
                 }
             }
 
-        val temperatureCelcius: Float
+        private val temperatureCelcius: Float
             get() = temperature - 273.15f
 
-        val temperatureFahrenheit: Float
+        private val temperatureFahrenheit: Float
             get() = temperature * 9 / 5 - 459.67f
+
+        fun getTempature(unit: Long): String {
+            return when (unit) {
+                1L -> String.format("%.0f\u00B0K", temperature)
+                2L -> String.format("%.0f\u00B0F", temperatureFahrenheit)
+                else -> String.format("%.0f\u00B0C", temperatureCelcius)
+            }
+        }
 
         override fun toString(): String {
             return "WeatherInfo: condition=" + condition + ", temperature=" + temperature +
@@ -105,6 +114,8 @@ class WeatherQSTileService : TileService(), CoroutineScope {
     private lateinit var weatherChannel: Channel<OpenWeatherMapCurrentModel?>
 
     private var state: Int = Tile.STATE_INACTIVE
+    // TODO: convert unit to enum in PreferencesHelper.kt
+    private var unit: Long = 0L
     private var updating = false
     private var weatherModel: OpenWeatherMapCurrentModel? = null
 
@@ -131,9 +142,17 @@ class WeatherQSTileService : TileService(), CoroutineScope {
 
         updating = false
         state = if (sharedPreferences.getBoolean(PreferencesHelper.KEY_WEATHER_ENABLED, true)) { Tile.STATE_ACTIVE } else { Tile.STATE_UNAVAILABLE }
+        unit = sharedPreferences.getLong(PreferencesHelper.KEY_TEMPURATURE_UNIT, 0L)
 
         // listen to weather channel forever
         launch {
+            val hourMinFormatter = DateTimeFormatterBuilder()
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .toFormatter()
+                .withZone(ZoneId.systemDefault())
+
             for (weather in weatherChannel) {
                 Log.d(TAG, "Updating weather tile")
 
@@ -164,8 +183,8 @@ class WeatherQSTileService : TileService(), CoroutineScope {
                 weatherInfo.timestamp = Instant.ofEpochSecond(weather.dt)
 
                 tile?.icon = Icon.createWithResource(this@WeatherQSTileService, weatherInfo.conditionImage)
-                tile?.label = weatherInfo.temperatureCelcius.toInt().toString() + "\u00B0C - " + weatherInfo.town +
-                        "\n" + DateTimeFormatter.ISO_LOCAL_TIME.withZone(ZoneId.systemDefault()).format(weatherInfo.timestamp)
+                tile?.label = weatherInfo.getTempature(unit) + " " + weatherInfo.town + " " +
+                        hourMinFormatter.format(weatherInfo.timestamp)
                 tile?.updateTile()
             }
         }
@@ -224,6 +243,9 @@ class WeatherQSTileService : TileService(), CoroutineScope {
         }
         tile?.state = state
         tile?.updateTile()
+
+        // TODO activity needs to tell this which temp unit
+        unit = sharedPreferences.getLong(PreferencesHelper.KEY_TEMPURATURE_UNIT, 0L)
 
         // update display with current model
         // TODO probably a better way to tell the app to load new weather info

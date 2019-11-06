@@ -84,7 +84,7 @@ class ChooseOnMapActivity : AppCompatActivity() {
         map.onDestroy()
     }
 
-    override fun onSaveInstanceState(outState: Bundle?) {
+    override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         map.onSaveInstanceState(outState)
     }
